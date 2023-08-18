@@ -13,3 +13,4 @@ RUN curl -sS https://getcomposer.org/installer | php && \
     mv composer.phar /usr/local/bin/composer
 
 # Then init as: composer create-project symfony/skeleton .
+# php bin/console daily-nasa -h
