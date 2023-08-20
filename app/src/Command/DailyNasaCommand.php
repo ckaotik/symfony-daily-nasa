@@ -71,9 +71,7 @@ class DailyNasaCommand extends Command
     {
         $date = new \DateTime($input->getOption(static::COMMAND_OPTION_DATE));
         $dateString = $date->format(static::COMMAND_OPTION_DATE_FORMAT);
-        $output->writeln(sprintf('Fetching images for %s...', 
-            $dateString
-        ));
+        $output->writeln(sprintf('Fetching images for %s...', $dateString));
 
         $imageDir = $input->getArgument(static::COMMAND_PARAM_DESTINATION) . DIRECTORY_SEPARATOR 
             . $dateString . DIRECTORY_SEPARATOR;
@@ -88,16 +86,18 @@ class DailyNasaCommand extends Command
             return Command::FAILURE;
         }
 
-        $imageCount = 0;
+        $output->writeln(sprintf('Found %d image(s)', count($imagesMetadata)));
+
+        $numDownloaded = 0;
         foreach ($imagesMetadata as $imageMetadata) {
             $sourceUrl = $this->apiClient->getImageUrl($imageMetadata, $imageType);
 
             $this->fileSystem->mkdir($imageDir);
             $this->fileSystem->copy($sourceUrl, $imageDir . basename($sourceUrl));
-            $imageCount++;
+            $numDownloaded++;
         }
 
-        $output->writeln(sprintf('<info>[Done] Downloaded %d image(s) to %s.</info>', $imageCount, $imageDir));
+        $output->writeln(sprintf('<info>[Done] Downloaded %d image(s) to %s.</info>', $numDownloaded, $imageDir));
 
         return Command::SUCCESS;
     }

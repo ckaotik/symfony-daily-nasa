@@ -10,15 +10,6 @@ use stdClass;
 
 class NasaApiClient implements NasaApiClientInterface
 {
-    /**
-     * Your personal API key.
-     * 
-     * @see https://api.nasa.gov/index.html#signUp
-     * 
-     * @todo Add separate config to keep this secret out of the repo.
-     */
-    protected const API_KEY = 'p960B4skMQHGdPnetw2KYFVzzoomz4GV5oZMZjUM';
-
     protected const ENDPOINT_EPIC_IMAGE_METADATA = 'https://epic.gsfc.nasa.gov/api/natural/date/';
     protected const BASE_URL_EPIC_IMAGE_FILE = 'https://epic.gsfc.nasa.gov/archive/natural/';
     protected const IMAGE_TYPES = ['png', 'jpg', 'thumbs'];
@@ -29,13 +20,19 @@ class NasaApiClient implements NasaApiClientInterface
     protected HttpClientInterface $httpClient;
 
     /**
+     * The API key to use for requests.
+     */
+    protected string $apiKey;
+
+    /**
      * Constructs a new NasaApiClient.
-     * 
+     *
      * @param \Symfony\Contracts\HttpClient\HttpClientInterface $http_client
      */
-    public function __construct(HttpClientInterface $http_client)
+    public function __construct(HttpClientInterface $http_client, string $api_key = null)
     {
         $this->httpClient = $http_client;
+        $this->apiKey = $api_key;
     }
 
     /**
@@ -46,25 +43,44 @@ class NasaApiClient implements NasaApiClientInterface
      */
     public function getDailyEarthImageMetadata(string $date): ?array
     {
-        $response = $this->httpClient->request('GET', static::ENDPOINT_EPIC_IMAGE_METADATA . $date, [
-            'headers' => [
-                'Accept' => 'application/json',
-            ],
-            'query' => [
-                'api_key' => static::API_KEY,
-            ],
-        ]);
-
-        if ($response->getStatusCode() !== 200) {
+        $responseData = $this->getJSON(static::ENDPOINT_EPIC_IMAGE_METADATA . $date);
+        if ($responseData === false) {
             throw new RuntimeException('API connection failed.');
         }
 
-        $responseData = json_decode($response->getContent());
         if (empty($responseData)) {
             throw new InvalidArgumentException('No images were found for the provided date.');
         }
 
         return $responseData;
+    }
+
+    /**
+     * Sends a GET request and returns the JSON data content.
+     *
+     * @param string $url
+     *   The URL to send the request to.
+     * @param array $query
+     *   Optional query parameters to add to the request.
+     *
+     * @return mixed|bool
+     *   A data object containing or false in case of errors.
+     */
+    protected function getJSON(string $url, array $query = []): mixed
+    {
+        $apiKey = $this->apiKey;
+        if ($apiKey && !isset($query['api_key'])) {
+            $query['api_key'] = $apiKey;
+        }
+
+        $data = $this->httpClient->request('GET', $url, [
+            'headers' => [
+                'Accept' => 'application/json',
+            ],
+            'query' => $query,
+        ]);
+
+        return $data ? json_decode($data->getContent()) : false;
     }
 
     /**
