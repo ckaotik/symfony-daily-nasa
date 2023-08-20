@@ -15,11 +15,6 @@ interface NasaApiClientInterface
     public function getDailyEarthImageMetadata(string $date): ?array;
 
     /**
-     * @todo
-     */
-    public function downloadDailyEarthImages(string $date, string $destination, string $imageType): void;
-
-    /**
      * Builds the archive url from which the given image can be downloaded.
      *
      * @param \stdClass $imageMetadata

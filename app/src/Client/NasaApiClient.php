@@ -6,7 +6,6 @@ use DateTime;
 use InvalidArgumentException;
 use RuntimeException;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
-use Symfony\Component\Filesystem\Filesystem;
 use stdClass;
 
 class NasaApiClient implements NasaApiClientInterface
@@ -30,20 +29,13 @@ class NasaApiClient implements NasaApiClientInterface
     protected HttpClientInterface $httpClient;
 
     /**
-     * @var \Symfony\Component\Filesystem\Filesystem
-     */
-    protected Filesystem $fileSystem;
-
-    /**
      * Constructs a new NasaApiClient.
      * 
      * @param \Symfony\Contracts\HttpClient\HttpClientInterface $http_client
-     * @param \Symfony\Component\Filesystem\Filesystem $file_system
      */
-    public function __construct(HttpClientInterface $http_client, Filesystem $file_system)
+    public function __construct(HttpClientInterface $http_client)
     {
         $this->httpClient = $http_client;
-        $this->fileSystem = $file_system;
     }
 
     /**
@@ -73,28 +65,6 @@ class NasaApiClient implements NasaApiClientInterface
         }
 
         return $responseData;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    public function downloadDailyEarthImages(string $date, string $destination, string $imageType): void
-    {
-        $imagesMetadata = $this->getDailyEarthImageMetadata($date);
-        if (!is_array($imagesMetadata)) {
-            return;
-        }
-
-        foreach ($imagesMetadata as $imageMetadata) {
-            if (empty($imageMetadata->image)) {
-                continue;
-            }
-
-            $sourceUrl = $this->getImageUrl($imageMetadata, $imageType);
-
-            $this->fileSystem->mkdir($destination);
-            $this->fileSystem->copy($sourceUrl, $destination . basename($sourceUrl));
-        }
     }
 
     /**
