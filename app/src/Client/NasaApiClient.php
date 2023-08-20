@@ -2,9 +2,9 @@
 
 namespace App\Client;
 
-// use Guzzle\Http\ClientInterface;
-
 use DateTime;
+use InvalidArgumentException;
+use RuntimeException;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Component\Filesystem\Filesystem;
 use stdClass;
@@ -15,16 +15,14 @@ class NasaApiClient implements NasaApiClientInterface
      * Your personal API key.
      * 
      * @see https://api.nasa.gov/index.html#signUp
+     * 
+     * @todo Add separate config to keep this secret out of the repo.
      */
     protected const API_KEY = 'p960B4skMQHGdPnetw2KYFVzzoomz4GV5oZMZjUM';
-    
-    /**
-     * One of 'png', 'jpg', 'thumbs'.
-     */
-    protected const IMAGE_TYPE = 'thumbs';
 
     protected const ENDPOINT_EPIC_IMAGE_METADATA = 'https://epic.gsfc.nasa.gov/api/natural/date/';
     protected const BASE_URL_EPIC_IMAGE_FILE = 'https://epic.gsfc.nasa.gov/archive/natural/';
+    protected const IMAGE_TYPES = ['png', 'jpg', 'thumbs'];
 
     /**
      * @var \Symfony\Contracts\HttpClient\HttpClientInterface
@@ -50,6 +48,9 @@ class NasaApiClient implements NasaApiClientInterface
 
     /**
      * {@inheritDoc}
+     *
+     * @throws InvalidArgumentException
+     * @throws RuntimeException
      */
     public function getDailyEarthImageMetadata(string $date): ?array
     {
@@ -63,16 +64,21 @@ class NasaApiClient implements NasaApiClientInterface
         ]);
 
         if ($response->getStatusCode() !== 200) {
-            return null;
+            throw new RuntimeException('API connection failed.');
         }
 
-        return json_decode($response->getContent());
+        $responseData = json_decode($response->getContent());
+        if (empty($responseData)) {
+            throw new InvalidArgumentException('No images were found for the provided date.');
+        }
+
+        return $responseData;
     }
 
     /**
      * {@inheritDoc}
      */
-    public function downloadDailyEarthImages(string $date, string $destination): void
+    public function downloadDailyEarthImages(string $date, string $destination, string $imageType): void
     {
         $imagesMetadata = $this->getDailyEarthImageMetadata($date);
         if (!is_array($imagesMetadata)) {
@@ -84,7 +90,7 @@ class NasaApiClient implements NasaApiClientInterface
                 continue;
             }
 
-            $sourceUrl = $this->buildImageUrl($imageMetadata);
+            $sourceUrl = $this->getImageUrl($imageMetadata, $imageType);
 
             $this->fileSystem->mkdir($destination);
             $this->fileSystem->copy($sourceUrl, $destination . basename($sourceUrl));
@@ -92,15 +98,26 @@ class NasaApiClient implements NasaApiClientInterface
     }
 
     /**
-     * Builds the archive url from which the given image can be downloaded.
+     * {@inheritDoc}
      */
-    protected function buildImageUrl(stdClass $imageMetadata): string 
+    public function getImageUrl(stdClass $imageMetadata, string $imageType): string
     {
         $dateTime = new DateTime($imageMetadata->date);
+        if (!$dateTime || !in_array($imageType, static::IMAGE_TYPES, true)) {
+            return '';
+        }
 
         return static::BASE_URL_EPIC_IMAGE_FILE
             . $dateTime->format('Y/m/d') . DIRECTORY_SEPARATOR
-            . static::IMAGE_TYPE . DIRECTORY_SEPARATOR
-            . $imageMetadata->image . (static::IMAGE_TYPE === 'png' ? '.png' : '.jpg');
+            . $imageType . DIRECTORY_SEPARATOR
+            . $imageMetadata->image . ($imageType === 'png' ? '.png' : '.jpg');
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function getImageTypes(): array
+    {
+        return static::IMAGE_TYPES;
     }
 }
